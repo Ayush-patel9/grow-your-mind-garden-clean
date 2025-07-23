@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckSquare, Plus, Calendar, AlertCircle, Leaf } from 'lucide-react';
+import { CheckSquare, Plus, Calendar, AlertCircle, Leaf, Trash2 } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -71,6 +72,10 @@ export const TaskTracker = ({ onTasksChange }: TaskTrackerProps) => {
       }
       return task;
     }));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(task => task.id !== id));
   };
 
   const getCategoryColor = (category: Task['category']) => {
@@ -238,6 +243,34 @@ export const TaskTracker = ({ onTasksChange }: TaskTrackerProps) => {
                       )}
                     </div>
                   </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{task.title}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => deleteTask(task.id)}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ))
             )}
@@ -247,7 +280,14 @@ export const TaskTracker = ({ onTasksChange }: TaskTrackerProps) => {
         {/* Completed Tasks */}
         <Card className="bg-card/90 backdrop-blur">
           <CardHeader>
-            <CardTitle className="text-lg">🌳 Grown Tasks</CardTitle>
+            <CardTitle className="text-lg flex items-center justify-between">
+              🌳 Grown Tasks
+              {completedTasks.length > 7 && (
+                <Badge variant="secondary" className="text-xs">
+                  Showing 7 of {completedTasks.length}
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {completedTasks.length === 0 ? (
@@ -256,27 +296,63 @@ export const TaskTracker = ({ onTasksChange }: TaskTrackerProps) => {
                 <p className="text-muted-foreground">Complete tasks to see them flourish here!</p>
               </div>
             ) : (
-              completedTasks.slice(0, 10).map(task => (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-accent/20 animate-leaf-fall"
-                >
-                  <Checkbox checked={true} className="mt-1" />
-                  <div className="flex-1">
-                    <p className="font-medium line-through text-muted-foreground">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className={getCategoryColor(task.category)}>
-                        {task.category}
-                      </Badge>
-                      {task.completedAt && (
-                        <span className="text-xs text-muted-foreground">
-                          Completed {task.completedAt.toLocaleDateString()}
-                        </span>
-                      )}
+              completedTasks
+                .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+                .slice(0, 7)
+                .map(task => (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-accent/20 animate-leaf-fall"
+                  >
+                    <Checkbox 
+                      checked={true} 
+                      onCheckedChange={() => toggleTask(task.id)}
+                      className="mt-1" 
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium line-through text-muted-foreground">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className={getCategoryColor(task.category)}>
+                          {task.category}
+                        </Badge>
+                        {task.completedAt && (
+                          <span className="text-xs text-muted-foreground">
+                            Completed {new Date(task.completedAt).toLocaleDateString()} at{' '}
+                            {new Date(task.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Completed Task</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to permanently delete "{task.title}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => deleteTask(task.id)}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </CardContent>
         </Card>

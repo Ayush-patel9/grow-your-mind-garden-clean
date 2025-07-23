@@ -6,6 +6,7 @@ import { NotesModule } from './NotesModule';
 import { TaskTracker } from './TaskTracker';
 import { FocusTimer } from './FocusTimer';
 import { TreeGrowth } from './TreeGrowth';
+import { useTimer } from '@/contexts/TimerContext';
 import { 
   FileText, 
   CheckSquare, 
@@ -20,14 +21,12 @@ import forestBg from '@/assets/forest-background.jpg';
 export const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [todayTasks, setTodayTasks] = useState(0);
-  const [focusSessions, setFocusSessions] = useState(0);
   const [notes, setNotes] = useState(0);
-
-  const growthLevel = Math.min(100, (todayTasks * 20) + (focusSessions * 30) + (notes * 10));
+  const { sessions: focusSessions } = useTimer();
 
   return (
     <div 
-      className="min-h-screen bg-background relative"
+      className="relative"
       style={{
         backgroundImage: `url(${forestBg})`,
         backgroundSize: 'cover',
@@ -94,7 +93,7 @@ export const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TreeGrowth level={growthLevel} />
+                  <TreeGrowth />
                 </CardContent>
               </Card>
 
@@ -185,7 +184,7 @@ export const Dashboard = () => {
 
           {/* Focus Tab */}
           <TabsContent value="focus">
-            <FocusTimer onSessionComplete={() => setFocusSessions(prev => prev + 1)} />
+            <FocusTimer />
           </TabsContent>
         </Tabs>
       </div>

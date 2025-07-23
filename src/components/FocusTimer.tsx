@@ -1,91 +1,56 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useState } from 'react';
+import { useTimer } from '@/contexts/TimerContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Play, Pause, Square, TreePine, Zap, Award } from 'lucide-react';
+import { Timer, Play, Pause, Square, TreePine, Zap, Award, Download, History, Calendar } from 'lucide-react';
+import { Input } from './ui/input';
 
 interface FocusTimerProps {
-  onSessionComplete: () => void;
+  onSessionComplete?: () => void;
 }
 
 export const FocusTimer = ({ onSessionComplete }: FocusTimerProps) => {
-  const [duration, setDuration] = useState(25); // minutes
-  const [timeLeft, setTimeLeft] = useState(duration * 60); // seconds
-  const [isRunning, setIsRunning] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [sessions, setSessions] = useLocalStorage('growmind-sessions', 0);
-  const [streak, setStreak] = useLocalStorage('growmind-streak', 0);
-  const [totalMinutes, setTotalMinutes] = useLocalStorage('growmind-total-minutes', 0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const {
+    duration,
+    timeLeft,
+    isRunning,
+    isCompleted,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+    setDuration,
+    sessions,
+    streak,
+    totalMinutes,
+    completedSessions,
+    formatTime,
+    getProgress,
+    getTreeGrowth,
+    downloadSessionsCSV,
+    exportSessionHistory,
+  } = useTimer();
+
+  const [customDuration, setCustomDuration] = useState<number | null>(null);
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const presetDurations = [
+    { label: '10 min', value: 10, icon: '🌱' },
     { label: '25 min', value: 25, icon: '🌱' },
     { label: '50 min', value: 50, icon: '🌳' },
-    { label: '90 min', value: 90, icon: '🏔️' }
+    { label: '90 min', value: 90, icon: '🏔️' },
+    { label: 'Custom', value: 'custom', icon: '🌲' }
   ];
-
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            setIsCompleted(true);
-            setSessions(prev => prev + 1);
-            setStreak(prev => prev + 1);
-            setTotalMinutes(prev => prev + duration);
-            onSessionComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft, onSessionComplete]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const startTimer = () => {
-    setIsRunning(true);
-    setIsCompleted(false);
-  };
-
-  const pauseTimer = () => {
-    setIsRunning(false);
-  };
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(duration * 60);
-    setIsCompleted(false);
-  };
 
   const selectDuration = (newDuration: number) => {
     if (!isRunning) {
       setDuration(newDuration);
-      setTimeLeft(newDuration * 60);
-      setIsCompleted(false);
     }
   };
 
-  const progress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
-  const treeGrowth = Math.min(100, progress);
+  const progress = getProgress();
+  const treeGrowth = getTreeGrowth();
 
   return (
     <div className="space-y-6">
@@ -100,18 +65,53 @@ export const FocusTimer = ({ onSessionComplete }: FocusTimerProps) => {
         <CardContent className="space-y-6">
           {/* Duration Selection */}
           {!isRunning && !isCompleted && (
-            <div className="flex gap-2 justify-center">
-              {presetDurations.map(preset => (
-                <Button
-                  key={preset.value}
-                  variant={duration === preset.value ? "default" : "outline"}
-                  onClick={() => selectDuration(preset.value)}
-                  className="flex items-center gap-2"
+            <div className="flex flex-col gap-2 items-center justify-center">
+              <div className="flex gap-2 justify-center">
+                {presetDurations.map(preset => (
+                  <Button
+                    key={preset.value}
+                    variant={
+                      (preset.value === 'custom' && showCustomInput) || (typeof preset.value === 'number' && duration === preset.value && !showCustomInput)
+                        ? "default"
+                        : "outline"
+                    }
+                    onClick={() => {
+                      if (preset.value === 'custom') {
+                        setShowCustomInput(true);
+                      } else {
+                        setShowCustomInput(false);
+                        selectDuration(preset.value as number);
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <span>{preset.icon}</span>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              {showCustomInput && (
+                <form
+                  className="flex gap-2 items-center mt-2"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    if (customDuration && customDuration > 0) {
+                      selectDuration(customDuration);
+                      setShowCustomInput(false);
+                    }
+                  }}
                 >
-                  <span>{preset.icon}</span>
-                  {preset.label}
-                </Button>
-              ))}
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Enter minutes"
+                    value={customDuration ?? ''}
+                    onChange={e => setCustomDuration(Number(e.target.value))}
+                    className="w-28"
+                  />
+                  <Button type="submit" variant="default">Set</Button>
+                </form>
+              )}
             </div>
           )}
 
@@ -243,6 +243,102 @@ export const FocusTimer = ({ onSessionComplete }: FocusTimerProps) => {
               {sessions >= 3 && <Badge className="bg-gradient-growth">🌿 Growing Strong</Badge>}
               {sessions >= 5 && <Badge className="bg-gradient-sunrise">🌳 Forest Guardian</Badge>}
               {streak >= 7 && <Badge className="bg-gradient-forest">🔥 Week Streak</Badge>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Focus Session History */}
+      {completedSessions.length > 0 && (
+        <Card className="bg-card/90 backdrop-blur">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <History className="text-primary" />
+                Focus Session History
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={downloadSessionsCSV}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Download size={14} />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {completedSessions
+                .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+                .slice(0, 20) // Show last 20 sessions
+                .map((session) => {
+                  const sessionDate = new Date(session.completedAt);
+                  const isToday = sessionDate.toDateString() === new Date().toDateString();
+                  
+                  return (
+                    <div 
+                      key={session.id}
+                      className="flex items-center justify-between p-3 bg-accent/20 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-lg">
+                          {session.type === 'small' ? '🌱' : session.type === 'medium' ? '🌳' : '🏔️'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{session.duration} minutes</span>
+                            <Badge variant={session.type === 'large' ? 'default' : 'secondary'} className="text-xs">
+                              {session.type}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar size={12} />
+                            {isToday ? 'Today' : sessionDate.toLocaleDateString()} at{' '}
+                            {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-primary">
+                          {session.type === 'small' ? 'Quick Focus' : 
+                           session.type === 'medium' ? 'Deep Work' : 'Power Session'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              
+              {completedSessions.length > 20 && (
+                <div className="text-center pt-2 text-sm text-muted-foreground">
+                  Showing last 20 sessions. Export CSV to see all {completedSessions.length} sessions.
+                </div>
+              )}
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">
+                  {completedSessions.filter(s => s.type === 'small').length}
+                </div>
+                <div className="text-xs text-muted-foreground">🌱 Quick Sessions</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">
+                  {completedSessions.filter(s => s.type === 'medium').length}
+                </div>
+                <div className="text-xs text-muted-foreground">🌳 Deep Sessions</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">
+                  {completedSessions.filter(s => s.type === 'large').length}
+                </div>
+                <div className="text-xs text-muted-foreground">🏔️ Power Sessions</div>
+              </div>
             </div>
           </CardContent>
         </Card>

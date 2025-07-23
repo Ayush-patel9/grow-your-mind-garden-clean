@@ -1,96 +1,126 @@
-import { TreePine, Leaf } from 'lucide-react';
-import treeIcon from '@/assets/tree-icon.png';
+import { useTimer } from '@/contexts/TimerContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { TreePine, Sprout, Trees } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-interface TreeGrowthProps {
-  level: number; // 0-100
-}
+export const TreeGrowth = () => {
+  const { completedSessions, totalMinutes } = useTimer();
 
-export const TreeGrowth = ({ level }: TreeGrowthProps) => {
-  const treeHeight = Math.max(20, (level / 100) * 200);
-  const leafCount = Math.floor(level / 20);
-  
+  const getTreeComponent = (type: 'small' | 'medium' | 'large', session: any, index: number) => {
+    const treeProps = {
+      small: { size: 20, color: 'text-green-400', icon: Sprout },
+      medium: { size: 28, color: 'text-green-600', icon: TreePine },
+      large: { size: 36, color: 'text-green-800', icon: Trees }
+    };
+
+    const { size, color, icon: IconComponent } = treeProps[type];
+    
+    return (
+      <TooltipProvider key={session.id}>
+        <Tooltip>
+          <TooltipTrigger>
+            <div className="relative group cursor-pointer">
+              <IconComponent 
+                size={size} 
+                className={`${color} transition-all duration-300 hover:scale-110 drop-shadow-sm`}
+              />
+              <div className="absolute inset-0 bg-green-300/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="text-center">
+              <p className="font-semibold">
+                {type === 'small' ? '🌱 Small Tree' : type === 'medium' ? '🌳 Medium Tree' : '🏔️ Large Tree'}
+              </p>
+              <p className="text-sm">{session.duration} minutes</p>
+              <p className="text-xs text-muted-foreground">
+                {new Date(session.completedAt).toLocaleDateString()} at{' '}
+                {new Date(session.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const treeCounts = {
+    small: completedSessions.filter(s => s.type === 'small').length,
+    medium: completedSessions.filter(s => s.type === 'medium').length,
+    large: completedSessions.filter(s => s.type === 'large').length,
+  };
+
+  const totalTrees = completedSessions.length;
+
   return (
-    <div className="flex flex-col items-center justify-end h-64 relative bg-gradient-to-b from-accent/20 to-accent/10 rounded-lg p-6">
-      {/* Ground */}
-      <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-r from-secondary to-accent rounded-b-lg" />
-      
-      {/* Tree Container */}
-      <div className="relative flex flex-col items-center justify-end" style={{ height: `${treeHeight}px` }}>
-        {/* Floating Leaves Animation */}
-        {Array.from({ length: leafCount }).map((_, i) => (
-          <Leaf
-            key={i}
-            className={`absolute text-primary animate-pulse-growth`}
-            size={16}
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 50}%`,
-              animationDelay: `${i * 0.5}s`,
-            }}
-          />
-        ))}
-        
-        {/* Main Tree */}
-        <div className="relative">
-          <img 
-            src={treeIcon} 
-            alt="Growing Tree" 
-            className="w-20 h-20 object-contain animate-grow"
-            style={{
-              filter: `hue-rotate(${level * 0.5}deg) saturate(${1 + level / 100})`,
-              transform: `scale(${0.5 + (level / 100) * 0.5})`,
-            }}
-          />
-          
-          {/* Growth Glow Effect */}
-          {level > 50 && (
-            <div className="absolute inset-0 bg-primary-glow/30 rounded-full blur-lg animate-pulse-growth" />
-          )}
-        </div>
-      </div>
-      
-      {/* Progress Text */}
-      <div className="absolute top-4 left-4 right-4 text-center">
-        <p className="text-lg font-semibold text-foreground">Growth Level</p>
-        <div className="flex items-center justify-center gap-2 mt-2">
-          <div className="flex-1 bg-secondary rounded-full h-2">
-            <div 
-              className="bg-gradient-forest h-2 rounded-full transition-all duration-500"
-              style={{ width: `${level}%` }}
-            />
+    <Card className="bg-card/90 backdrop-blur">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trees className="text-primary" />
+          Your Forest
+          <Badge variant="secondary" className="ml-auto">
+            {totalTrees} Trees
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {completedSessions.length === 0 ? (
+          <div className="text-center py-8">
+            <Sprout className="mx-auto mb-4 text-muted-foreground" size={48} />
+            <p className="text-muted-foreground">
+              Complete focus sessions to grow your forest!
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              🌱 &lt; 15 min • 🌳 15-45 min • 🏔️ 45+ min
+            </p>
           </div>
-          <span className="text-sm font-medium text-muted-foreground">{level}%</span>
-        </div>
-      </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Tree counts summary */}
+            <div className="flex gap-4 justify-center">
+              {treeCounts.small > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  🌱 {treeCounts.small}
+                </Badge>
+              )}
+              {treeCounts.medium > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  🌳 {treeCounts.medium}
+                </Badge>
+              )}
+              {treeCounts.large > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  �️ {treeCounts.large}
+                </Badge>
+              )}
+            </div>
 
-      {/* Growth Messages */}
-      <div className="absolute bottom-16 text-center">
-        {level === 0 && (
-          <p className="text-sm text-muted-foreground animate-fade-in-up">
-            🌱 Plant your first seed by completing tasks
-          </p>
+            {/* Forest visualization */}
+            <div 
+              className="grid gap-3 p-4 bg-gradient-to-b from-sky-100 to-green-100 rounded-lg min-h-32"
+              style={{
+                gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))',
+                maxHeight: '200px',
+                overflowY: 'auto'
+              }}
+            >
+              {completedSessions
+                .sort((a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime())
+                .map((session, index) => 
+                  getTreeComponent(session.type, session, index)
+                )}
+            </div>
+
+            {/* Stats */}
+            <div className="text-center pt-2 border-t">
+              <p className="text-sm text-muted-foreground">
+                Total Focus Time: <span className="font-semibold text-primary">{totalMinutes} minutes</span>
+              </p>
+            </div>
+          </div>
         )}
-        {level > 0 && level < 25 && (
-          <p className="text-sm text-primary animate-fade-in-up">
-            🌿 Your seedling is sprouting!
-          </p>
-        )}
-        {level >= 25 && level < 50 && (
-          <p className="text-sm text-primary animate-fade-in-up">
-            🌳 Growing strong and tall!
-          </p>
-        )}
-        {level >= 50 && level < 75 && (
-          <p className="text-sm text-primary animate-fade-in-up">
-            🌲 A magnificent tree emerges!
-          </p>
-        )}
-        {level >= 75 && (
-          <p className="text-sm text-primary animate-fade-in-up">
-            🏆 Your forest is thriving!
-          </p>
-        )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

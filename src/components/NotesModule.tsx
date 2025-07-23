@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Folder, FileText, Plus, Search, Tag, Pin } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Folder, FileText, Plus, Search, Tag, Pin, Trash2, Eye } from 'lucide-react';
 
 interface Note {
   id: string;
@@ -27,6 +28,7 @@ export const NotesModule = ({ onNotesChange }: NotesModuleProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [viewingNote, setViewingNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
@@ -63,6 +65,10 @@ export const NotesModule = ({ onNotesChange }: NotesModuleProps) => {
     setNotes(prev => prev.map(note => 
       note.id === id ? { ...note, pinned: !note.pinned } : note
     ));
+  };
+
+  const deleteNote = (id: string) => {
+    setNotes(prev => prev.filter(note => note.id !== id));
   };
 
   const filteredNotes = notes
@@ -197,46 +203,182 @@ export const NotesModule = ({ onNotesChange }: NotesModuleProps) => {
           </Card>
         ) : (
           filteredNotes.map(note => (
-            <Card 
-              key={note.id} 
-              className="bg-card/90 backdrop-blur hover:shadow-growth transition-all duration-300 animate-fade-in-up"
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg truncate flex-1">{note.title}</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => togglePin(note.id)}
-                    className={note.pinned ? "text-primary" : "text-muted-foreground"}
-                  >
-                    <Pin size={14} />
-                  </Button>
+            <div key={note.id}>
+              <Card 
+                className="bg-card/90 backdrop-blur hover:shadow-growth transition-all duration-300 animate-fade-in-up cursor-pointer"
+                onClick={() => setViewingNote(note)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-lg truncate flex-1">{note.title}</CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePin(note.id);
+                        }}
+                        className={note.pinned ? "text-primary" : "text-muted-foreground"}
+                      >
+                        <Pin size={14} />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{note.title}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => deleteNote(note.id)}
+                              className="bg-red-500 hover:bg-red-600"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Folder size={12} />
+                    {note.folder}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                    {note.content || "No content yet..."}
+                  </p>
+                  {note.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {note.tags.map(tag => (
+                        <Badge key={tag} variant="secondary" className="text-xs">
+                          <Tag size={8} className="mr-1" />
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(note.createdAt).toLocaleDateString()}
+                    </span>
+                    <Button variant="ghost" size="sm" className="text-primary">
+                      <Eye size={12} className="mr-1" />
+                      View
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Note Viewer Dialog */}
+      <Dialog open={!!viewingNote} onOpenChange={() => setViewingNote(null)}>
+        <DialogContent className="bg-card max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="text-primary" />
+                {viewingNote?.title}
+              </DialogTitle>
+              {viewingNote?.pinned && (
+                <Pin className="text-primary" size={16} />
+              )}
+            </div>
+          </DialogHeader>
+          {viewingNote && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Folder size={14} />
+                  {viewingNote.folder}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Folder size={12} />
-                  {note.folder}
+                <div>
+                  Created: {new Date(viewingNote.createdAt).toLocaleDateString()} at{' '}
+                  {new Date(viewingNote.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                  {note.content || "No content yet..."}
-                </p>
-                {note.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {note.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        <Tag size={8} className="mr-1" />
+              </div>
+              
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap break-words">
+                  {viewingNote.content || "No content available."}
+                </div>
+              </div>
+
+              {viewingNote.tags.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Tags:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {viewingNote.tags.map(tag => (
+                      <Badge key={tag} variant="secondary">
+                        <Tag size={12} className="mr-1" />
                         {tag}
                       </Badge>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => togglePin(viewingNote.id)}
+                  className="flex items-center gap-2"
+                >
+                  <Pin size={14} />
+                  {viewingNote.pinned ? 'Unpin' : 'Pin'}
+                </Button>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="flex items-center gap-2">
+                      <Trash2 size={14} />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "{viewingNote.title}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => {
+                          deleteNote(viewingNote.id);
+                          setViewingNote(null);
+                        }}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
